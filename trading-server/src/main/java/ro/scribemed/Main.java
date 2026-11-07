@@ -29,7 +29,7 @@ public class Main {
                             persistenceManager.entityManagerFactory()
                     );
             logger.info(
-                    "Connected to database {} at {}:{}",
+                    "CONNECTED TO DATABASE {} at {}:{}",
                     databaseConfig.database(),
                     databaseConfig.host(),
                     databaseConfig.port()
