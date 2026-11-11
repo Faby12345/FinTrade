@@ -1,7 +1,8 @@
 package ro.scribemed.user.service;
 
-import jakarta.persistence.EntityExistsException;
-import jakarta.persistence.EntityNotFoundException;
+import ro.scribemed.authentification.exception.EmailAlreadyRegisteredException;
+import ro.scribemed.authentification.exception.InvalidCredentialsException;
+import ro.scribemed.authentification.exception.UsernameAlreadyRegisteredException;
 import ro.scribemed.authentification.security.PasswordHasher;
 import ro.scribemed.shared.persistence.JpaTransactionManager;
 import ro.scribemed.user.domain.User;
@@ -33,15 +34,11 @@ public final class UserService {
                     new JpaUserRepository(entityManager);
 
             if (repository.existsByUsername(username)) {
-                throw new IllegalArgumentException(
-                        "Username already exists"
-                );
+                throw new UsernameAlreadyRegisteredException(username);
             }
 
             if (repository.existsByEmail(email)) {
-                throw new IllegalArgumentException(
-                        "Email already exists"
-                );
+                throw new EmailAlreadyRegisteredException(email);
             }
 
             String hashPassword = passwordHasher.hash(rawPassword);
@@ -54,7 +51,7 @@ public final class UserService {
         });
     }
 
-    public User login(
+    public User authenticate(
             String email,
             String rawPassword
     ) {
@@ -66,14 +63,14 @@ public final class UserService {
             Optional<User> user = repository.findByEmail(email);
 
             if(user.isEmpty()){
-                throw new EntityNotFoundException("Email or password incorrect");
+                throw new InvalidCredentialsException();
             }
 
             User currentUser = user.get();
             String hashPassword  = currentUser.getPasswordHash();
 
             if(!passwordHasher.matches(rawPassword, hashPassword)){
-                throw new IllegalStateException("Email or password incorrect");
+                throw new InvalidCredentialsException();
             }
 
             return currentUser;
