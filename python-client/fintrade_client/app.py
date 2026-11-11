@@ -5,6 +5,8 @@ from __future__ import annotations
 import tkinter as tk
 
 from . import theme
+from .network.trading_client import TradingClient
+from .services.authentication_service import AuthenticationService
 from .views.login_view import LoginView
 from .views.register_view import RegisterView
 
@@ -18,6 +20,15 @@ class FinTradeApp:
         self.root.geometry("1080x700")
         self.root.minsize(900, 640)
         self.root.configure(background=theme.WINDOW_BACKGROUND)
+
+        self.trading_client = TradingClient(
+            host="127.0.0.1",
+            port=9090,
+        )
+        self.authentication_service = AuthenticationService(
+            self.trading_client
+        )
+        self.root.protocol("WM_DELETE_WINDOW", self._close)
 
         self._current_view: tk.Frame | None = None
         self._build_shell()
@@ -113,6 +124,7 @@ class FinTradeApp:
             self.content_panel,
             on_login=self.show_login,
             on_register=self.show_register,
+            authentication_service=self.authentication_service,
         )
         self._current_view.grid(
             row=0,
@@ -126,3 +138,7 @@ class FinTradeApp:
 
     def show_register(self) -> None:
         self._show(RegisterView)
+
+    def _close(self) -> None:
+        self.trading_client.close()
+        self.root.destroy()

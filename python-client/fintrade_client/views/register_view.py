@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import re
+import queue
+import threading
 import tkinter as tk
 from collections.abc import Callable
 
 from .. import theme
+from ..services.authentication_service import AuthenticationService
 from .base_auth_view import BaseAuthView
 from .components import FormField, LinkButton
 
@@ -21,11 +24,13 @@ class RegisterView(BaseAuthView):
         *,
         on_login: Callable[[], None],
         on_register: Callable[[], None],
+        authentication_service: AuthenticationService,
     ) -> None:
         super().__init__(
             parent,
             on_login=on_login,
             on_register=on_register,
+            authentication_service=authentication_service,
         )
 
         self.username = tk.StringVar()
@@ -33,6 +38,10 @@ class RegisterView(BaseAuthView):
         self.password = tk.StringVar()
         self.confirm_password = tk.StringVar()
         self.accept_simulation = tk.BooleanVar(value=False)
+        self._registration_in_progress = False
+        self._registration_results: queue.Queue[
+            tuple[str, object]
+        ] = queue.Queue()
 
         LinkButton(
             self,
@@ -131,6 +140,72 @@ class RegisterView(BaseAuthView):
             self.show_error("Confirm that you understand this is a simulation.")
             return
 
-        self.show_success(
-            "Details validated locally. Server registration is not connected yet."
+        if self._registration_in_progress:
+            return
+
+        self._registration_in_progress = True
+        self.status_text.set("Creating your account...")
+
+        threading.Thread(
+            target=self._perform_registration,
+            args=(username, email, password),
+            daemon=True,
+            name="fintrade-registration",
+        ).start()
+
+        self.after(50, self._poll_registration_result)
+
+    def _perform_registration(
+        self,
+        username: str,
+        email: str,
+        password: str,
+    ) -> None:
+        try:
+            response = self.authentication_service.register(
+                username,
+                email,
+                password,
+            )
+            self._registration_results.put(("response", response))
+        except (OSError, ConnectionError, ValueError) as exception:
+            self._registration_results.put(("error", exception))
+
+    def _poll_registration_result(self) -> None:
+        try:
+            result_type, result = (
+                self._registration_results.get_nowait()
+            )
+        except queue.Empty:
+            self.after(50, self._poll_registration_result)
+            return
+
+        self._registration_in_progress = False
+
+        if result_type == "error":
+            self.show_error(
+                "Could not connect to the FinTrade server."
+            )
+            return
+
+        self._handle_registration_response(result)
+
+    def _handle_registration_response(self, response: object) -> None:
+        if not isinstance(response, dict):
+            self.show_error("The server returned an invalid response.")
+            return
+
+        if response.get("status") == "OK":
+            self.show_success(
+                "Account created. You can now sign in."
+            )
+            self.after(900, self.on_login)
+            return
+
+        error = response.get("error") or {}
+        self.show_error(
+            error.get(
+                "message",
+                "The server rejected the registration request.",
+            )
         )

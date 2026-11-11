@@ -6,6 +6,7 @@ import tkinter as tk
 from collections.abc import Callable
 
 from .. import theme
+from ..services.authentication_service import AuthenticationService
 from .components import LinkButton, PrimaryButton
 
 
@@ -16,6 +17,7 @@ class BaseAuthView(tk.Frame):
         *,
         on_login: Callable[[], None],
         on_register: Callable[[], None],
+        authentication_service: AuthenticationService,
     ) -> None:
         super().__init__(
             parent,
@@ -28,6 +30,7 @@ class BaseAuthView(tk.Frame):
         )
         self.on_login = on_login
         self.on_register = on_register
+        self.authentication_service = authentication_service
         self.status_text = tk.StringVar()
         self.status_label: tk.Label | None = None
 
