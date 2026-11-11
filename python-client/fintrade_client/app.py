@@ -7,12 +7,13 @@ import tkinter as tk
 from . import theme
 from .network.trading_client import TradingClient
 from .services.authentication_service import AuthenticationService
+from .views.dashboard_view import DashboardView
 from .views.login_view import LoginView
 from .views.register_view import RegisterView
 
 
 class FinTradeApp:
-    """Owns the root window and swaps authentication views."""
+    """Owns the root window and swaps application views."""
 
     def __init__(self) -> None:
         self.root = tk.Tk()
@@ -124,6 +125,7 @@ class FinTradeApp:
             self.content_panel,
             on_login=self.show_login,
             on_register=self.show_register,
+            on_authenticated=self.show_dashboard,
             authentication_service=self.authentication_service,
         )
         self._current_view.grid(
@@ -138,6 +140,21 @@ class FinTradeApp:
 
     def show_register(self) -> None:
         self._show(RegisterView)
+
+    def show_dashboard(self, user: dict[str, object]) -> None:
+        if self._current_view is not None:
+            self._current_view.destroy()
+
+        self._current_view = DashboardView(
+            self.content_panel,
+            user=user,
+        )
+        self._current_view.grid(
+            row=0,
+            column=0,
+            padx=54,
+            pady=30,
+        )
 
     def _close(self) -> None:
         self.trading_client.close()

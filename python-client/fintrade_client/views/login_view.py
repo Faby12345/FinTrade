@@ -24,12 +24,14 @@ class LoginView(BaseAuthView):
         *,
         on_login: Callable[[], None],
         on_register: Callable[[], None],
+        on_authenticated: Callable[[dict[str, object]], None],
         authentication_service: AuthenticationService,
     ) -> None:
         super().__init__(
             parent,
             on_login=on_login,
             on_register=on_register,
+            on_authenticated=on_authenticated,
             authentication_service=authentication_service,
         )
 
@@ -154,8 +156,13 @@ class LoginView(BaseAuthView):
 
         if response.get("status") == "OK":
             user = response.get("data") or {}
+            if not isinstance(user, dict):
+                self.show_error("The server returned invalid user data.")
+                return
+
             username = user.get("username", "trader")
             self.show_success(f"Welcome back, {username}!")
+            self.after_idle(lambda: self.on_authenticated(user))
             return
 
         error = response.get("error") or {}

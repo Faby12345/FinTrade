@@ -17,6 +17,7 @@ class BaseAuthView(tk.Frame):
         *,
         on_login: Callable[[], None],
         on_register: Callable[[], None],
+        on_authenticated: Callable[[dict[str, object]], None],
         authentication_service: AuthenticationService,
     ) -> None:
         super().__init__(
@@ -30,6 +31,7 @@ class BaseAuthView(tk.Frame):
         )
         self.on_login = on_login
         self.on_register = on_register
+        self.on_authenticated = on_authenticated
         self.authentication_service = authentication_service
         self.status_text = tk.StringVar()
         self.status_label: tk.Label | None = None

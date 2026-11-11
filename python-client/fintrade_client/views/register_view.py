@@ -24,12 +24,14 @@ class RegisterView(BaseAuthView):
         *,
         on_login: Callable[[], None],
         on_register: Callable[[], None],
+        on_authenticated: Callable[[dict[str, object]], None],
         authentication_service: AuthenticationService,
     ) -> None:
         super().__init__(
             parent,
             on_login=on_login,
             on_register=on_register,
+            on_authenticated=on_authenticated,
             authentication_service=authentication_service,
         )
 
