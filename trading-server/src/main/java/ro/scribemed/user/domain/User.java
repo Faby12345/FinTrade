@@ -12,12 +12,29 @@ public class User extends BaseEntity {
     @Column(nullable = false, unique = true)
     private String email;
 
+    @Column(nullable = false)
+    private String passwordHash;
+
+    public String getUsername() {
+        return username;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public String getPasswordHash() {
+        return passwordHash;
+    }
+
     protected User() {}
 
-    public User(String username, String email) {
+    public User(String username, String email, String passwordHash) {
         this.username = username;
         this.email = email;
+        this.passwordHash = passwordHash;
     }
+
 
 
 }
