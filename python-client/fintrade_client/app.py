@@ -7,6 +7,7 @@ import tkinter as tk
 from . import theme
 from .network.trading_client import TradingClient
 from .services.authentication_service import AuthenticationService
+from .services.stock_service import StockService
 from .views.dashboard_view import DashboardView
 from .views.login_view import LoginView
 from .views.register_view import RegisterView
@@ -29,6 +30,7 @@ class FinTradeApp:
         self.authentication_service = AuthenticationService(
             self.trading_client
         )
+        self.stock_service = StockService(self.trading_client)
         self.root.protocol("WM_DELETE_WINDOW", self._close)
 
         self._current_view: tk.Frame | None = None
@@ -148,12 +150,14 @@ class FinTradeApp:
         self._current_view = DashboardView(
             self.content_panel,
             user=user,
+            stock_service=self.stock_service,
         )
         self._current_view.grid(
             row=0,
             column=0,
-            padx=54,
+            padx=36,
             pady=30,
+            sticky="nsew",
         )
 
     def _close(self) -> None:
