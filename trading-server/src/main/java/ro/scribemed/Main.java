@@ -12,9 +12,16 @@ import ro.scribemed.network.tcp.TradingTcpServer;
 import ro.scribemed.shared.persistence.JpaTransactionManager;
 import ro.scribemed.shared.persistence.PersistenceManager;
 import ro.scribemed.shared.persistence.config.DatabaseConfig;
+import ro.scribemed.stock.domain.Stock;
+import ro.scribemed.stock.handler.StockHandler;
+import ro.scribemed.stock.repository.JpaStockRepository;
+import ro.scribemed.stock.repository.StockRepository;
+import ro.scribemed.stock.service.StockService;
 import ro.scribemed.user.service.UserService;
 
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.util.List;
 
 public final class Main {
 
@@ -71,9 +78,13 @@ public final class Main {
                             persistenceManager.entityManagerFactory()
                     );
 
+            seedMockStocksIfEmpty(transactionManager);
+
             PasswordHasher passwordHasher =
                     new BCryptPasswordHasher(BCRYPT_COST);
 
+
+            /// INIT USERS / AUTH ENTRY POINT
             UserService userService = new UserService(
                     transactionManager,
                     passwordHasher
@@ -82,8 +93,17 @@ public final class Main {
             AuthenticationHandler authenticationHandler =
                     new AuthenticationHandler(userService);
 
+
+            /// INIT STOCKS ENTRY POINT
+            StockService stockService =
+                    new StockService(transactionManager);
+
+            StockHandler stockHandler = new
+                    StockHandler(stockService);
+
+
             RequestRouter requestRouter =
-                    new RequestRouter(authenticationHandler);
+                    new RequestRouter(authenticationHandler, stockHandler);
 
             int tcpPort = tcpPortFromEnvironment();
 
@@ -114,6 +134,39 @@ public final class Main {
                 }
             }
         }
+    }
+
+    private static void seedMockStocksIfEmpty(
+            JpaTransactionManager transactionManager
+    ) {
+        transactionManager.execute(entityManager -> {
+            StockRepository stockRepository =
+                    new JpaStockRepository(entityManager);
+
+            if (stockRepository.count() > 0) {
+                return;
+            }
+
+            List<Stock> mockStocks = List.of(
+                    new Stock("AAPL", "Apple Inc.", new BigDecimal("275.40")),
+                    new Stock("MSFT", "Microsoft Corp.", new BigDecimal("485.25")),
+                    new Stock("GOOGL", "Alphabet Inc.", new BigDecimal("312.80")),
+                    new Stock("AMZN", "Amazon.com Inc.", new BigDecimal("245.15")),
+                    new Stock("NVDA", "NVIDIA Corp.", new BigDecimal("198.70")),
+                    new Stock("META", "Meta Platforms Inc.", new BigDecimal("710.30")),
+                    new Stock("TSLA", "Tesla Inc.", new BigDecimal("462.90")),
+                    new Stock("JPM", "JPMorgan Chase & Co.", new BigDecimal("305.60")),
+                    new Stock("V", "Visa Inc.", new BigDecimal("372.45")),
+                    new Stock("NFLX", "Netflix Inc.", new BigDecimal("1215.50"))
+            );
+
+            mockStocks.forEach(stockRepository::add);
+
+            LOGGER.info(
+                    "Initialized stock catalog with {} mock stocks",
+                    mockStocks.size()
+            );
+        });
     }
 
     private static int tcpPortFromEnvironment() {

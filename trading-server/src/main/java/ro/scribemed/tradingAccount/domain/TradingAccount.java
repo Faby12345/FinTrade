@@ -39,4 +39,10 @@ public class TradingAccount extends BaseEntity {
 
     protected TradingAccount() {
     }
+
+    public TradingAccount(User user, BigDecimal defaultBalance){
+        this.user = user;
+        this.cashBalance = defaultBalance;
+        this.reservedCash = BigDecimal.ZERO;
+    }
 }

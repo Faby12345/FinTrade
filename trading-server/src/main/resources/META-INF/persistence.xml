@@ -11,6 +11,7 @@
         <provider>org.hibernate.jpa.HibernatePersistenceProvider</provider>
         <class>ro.scribemed.user.domain.User</class>
         <class>ro.scribemed.tradingAccount.domain.TradingAccount</class>
+        <class>ro.scribemed.stock.domain.Stock</class>
 
         <properties>
             <!-- MySQL connection -->

@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import ro.scribemed.authentification.handler.AuthenticationHandler;
 import ro.scribemed.network.protocol.ApiResponse;
 import ro.scribemed.network.protocol.exception.InvalidRequestException;
+import ro.scribemed.stock.handler.StockHandler;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -19,11 +20,14 @@ public final class RequestRouter {
             JsonMapper.builder().build();
 
     private final AuthenticationHandler authenticationHandler;
+    private final StockHandler stockHandler;
 
     public RequestRouter(
-            AuthenticationHandler authenticationHandler
+            AuthenticationHandler authenticationHandler,
+            StockHandler stockHandler
     ) {
         this.authenticationHandler = authenticationHandler;
+        this.stockHandler = stockHandler;
     }
 
     public String handle(
@@ -62,6 +66,10 @@ public final class RequestRouter {
                                 requestId,
                                 payload,
                                 session
+                        );
+                case "LIST_STOCKS" ->
+                        stockHandler.findAll(
+                                requestId
                         );
 
                 default -> ApiResponse.error(

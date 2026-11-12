@@ -21,10 +21,11 @@ public final class JpaTradingAccountRepository
     }
 
     @Override
-    public void add(TradingAccount account) {
+    public TradingAccount add(TradingAccount account) {
         Objects.requireNonNull(account);
 
         entityManager.persist(account);
+        return account;
     }
 
     @Override
