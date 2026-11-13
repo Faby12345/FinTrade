@@ -17,6 +17,8 @@ import ro.scribemed.stock.handler.StockHandler;
 import ro.scribemed.stock.repository.JpaStockRepository;
 import ro.scribemed.stock.repository.StockRepository;
 import ro.scribemed.stock.service.StockService;
+import ro.scribemed.tradingAccount.handler.TradingAccountHandler;
+import ro.scribemed.tradingAccount.service.TradingAccountService;
 import ro.scribemed.user.service.UserService;
 
 import java.io.IOException;
@@ -101,9 +103,17 @@ public final class Main {
             StockHandler stockHandler = new
                     StockHandler(stockService);
 
+            /// INIT TRADING ACCOUNT ENTRY POINT
+
+            TradingAccountService tradingAccountService =
+                    new TradingAccountService(transactionManager);
+
+            TradingAccountHandler tradingAccountHandler =
+                    new TradingAccountHandler(tradingAccountService);
+
 
             RequestRouter requestRouter =
-                    new RequestRouter(authenticationHandler, stockHandler);
+                    new RequestRouter(authenticationHandler, stockHandler, tradingAccountHandler);
 
             int tcpPort = tcpPortFromEnvironment();
 

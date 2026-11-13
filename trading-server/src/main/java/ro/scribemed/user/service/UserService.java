@@ -4,6 +4,8 @@ import ro.scribemed.authentification.exception.EmailAlreadyRegisteredException;
 import ro.scribemed.authentification.exception.InvalidCredentialsException;
 import ro.scribemed.authentification.exception.UsernameAlreadyRegisteredException;
 import ro.scribemed.authentification.security.PasswordHasher;
+import ro.scribemed.network.tcp.ClientSession;
+import ro.scribemed.network.tcp.TradingTcpServer;
 import ro.scribemed.shared.persistence.JpaTransactionManager;
 import ro.scribemed.tradingAccount.domain.TradingAccount;
 import ro.scribemed.tradingAccount.repository.JpaTradingAccountRepository;
@@ -66,6 +68,7 @@ public final class UserService {
             return user;
         });
     }
+
 
     public User authenticate(
             String email,

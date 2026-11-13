@@ -45,4 +45,12 @@ public class TradingAccount extends BaseEntity {
         this.cashBalance = defaultBalance;
         this.reservedCash = BigDecimal.ZERO;
     }
+
+    public BigDecimal getCashBalance() {
+        return cashBalance;
+    }
+
+    public BigDecimal getReservedCash() {
+        return reservedCash;
+    }
 }
