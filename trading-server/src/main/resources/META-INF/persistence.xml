@@ -12,6 +12,7 @@
         <class>ro.scribemed.user.domain.User</class>
         <class>ro.scribemed.tradingAccount.domain.TradingAccount</class>
         <class>ro.scribemed.stock.domain.Stock</class>
+        <class>ro.scribemed.position.domain.Position</class>
 
         <properties>
             <!-- MySQL connection -->
