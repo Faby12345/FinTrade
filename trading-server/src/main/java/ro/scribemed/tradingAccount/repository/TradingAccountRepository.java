@@ -9,7 +9,7 @@ import java.util.UUID;
 
 public interface TradingAccountRepository {
 
-    void add(TradingAccount account);
+    TradingAccount add(TradingAccount account);
 
     Optional<TradingAccount> findById(UUID id);
 

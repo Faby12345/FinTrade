@@ -5,6 +5,9 @@ import org.slf4j.LoggerFactory;
 import ro.scribemed.authentification.handler.AuthenticationHandler;
 import ro.scribemed.network.protocol.ApiResponse;
 import ro.scribemed.network.protocol.exception.InvalidRequestException;
+import ro.scribemed.stock.handler.StockHandler;
+import ro.scribemed.tradingAccount.handler.TradingAccountHandler;
+import ro.scribemed.tradingAccount.service.TradingAccountService;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -19,11 +22,17 @@ public final class RequestRouter {
             JsonMapper.builder().build();
 
     private final AuthenticationHandler authenticationHandler;
+    private final StockHandler stockHandler;
+    private final TradingAccountHandler tradingAccountHandler;
 
     public RequestRouter(
-            AuthenticationHandler authenticationHandler
+            AuthenticationHandler authenticationHandler,
+            StockHandler stockHandler,
+            TradingAccountHandler tradingAccountHandler
     ) {
         this.authenticationHandler = authenticationHandler;
+        this.stockHandler = stockHandler;
+        this.tradingAccountHandler = tradingAccountHandler;
     }
 
     public String handle(
@@ -45,6 +54,8 @@ public final class RequestRouter {
             String type = requiredText(request, "type");
             JsonNode payload = request.path("payload");
 
+
+            /// refactor thhis to  that descin
             ApiResponse response = switch (type) {
                 case "PING" -> ApiResponse.success(
                         requestId,
@@ -61,6 +72,15 @@ public final class RequestRouter {
                         authenticationHandler.login(
                                 requestId,
                                 payload,
+                                session
+                        );
+                case "LIST_STOCKS" ->
+                        stockHandler.findAll(
+                                requestId
+                        );
+                case "GET_ACCOUNT" ->
+                        tradingAccountHandler.getAccount(
+                                requestId,
                                 session
                         );
 
