@@ -8,7 +8,9 @@ from typing import Any
 
 from .. import theme
 from ..services.account_service import AccountService
+from ..services.order_service import OrderService
 from ..services.stock_service import StockService
+from .orders_table import OrdersTable
 from .stock_grid import StockGrid
 
 
@@ -21,6 +23,7 @@ class DashboardView(tk.Frame):
         *,
         user: dict[str, object],
         account_service: AccountService,
+        order_service: OrderService,
         stock_service: StockService,
     ) -> None:
         super().__init__(
@@ -32,6 +35,7 @@ class DashboardView(tk.Frame):
             pady=38,
         )
         self._account_service = account_service
+        self._order_service = order_service
         self._stock_service = stock_service
 
         username = user.get("username", "trader")
@@ -53,6 +57,12 @@ class DashboardView(tk.Frame):
         ).pack(anchor="w", pady=(10, 18))
 
         self._build_account_summary()
+
+        self._orders_table = OrdersTable(
+            self,
+            on_refresh=self._load_orders,
+        )
+        self._orders_table.pack(fill="x", pady=(0, 18))
 
         self._stock_grid = StockGrid(
             self,
@@ -124,6 +134,7 @@ class DashboardView(tk.Frame):
 
     def _load_dashboard(self) -> None:
         self._load_account()
+        self._load_orders()
         self._load_stocks()
 
     def _load_account(self) -> None:
@@ -163,6 +174,38 @@ class DashboardView(tk.Frame):
             label.configure(text="—", foreground=theme.MUTED)
 
         self._account_error.configure(text=message)
+
+    def _load_orders(self) -> None:
+        self._orders_table.show_loading()
+
+        try:
+            response = self._order_service.list_my_orders()
+        except (ConnectionError, OSError, ValueError) as exception:
+            self._orders_table.show_error(str(exception))
+            return
+
+        if response.get("status") != "OK":
+            error = response.get("error")
+            message = "The server could not load your orders."
+
+            if isinstance(error, dict):
+                message = str(error.get("message", message))
+
+            self._orders_table.show_error(message)
+            return
+
+        orders = response.get("data")
+
+        if not isinstance(orders, list):
+            self._orders_table.show_error(
+                "The server returned invalid order data."
+            )
+            return
+
+        valid_orders: list[dict[str, Any]] = [
+            order for order in orders if isinstance(order, dict)
+        ]
+        self._orders_table.show_orders(valid_orders)
 
     def _load_stocks(self) -> None:
         self._stock_grid.show_loading()

@@ -9,6 +9,9 @@ import ro.scribemed.authentification.security.PasswordHasher;
 import ro.scribemed.network.tcp.ClientHandler;
 import ro.scribemed.network.tcp.RequestRouter;
 import ro.scribemed.network.tcp.TradingTcpServer;
+import ro.scribemed.order.handler.OrderHandler;
+import ro.scribemed.order.service.OrderService;
+import ro.scribemed.shared.persistence.IncomingOrderQueue;
 import ro.scribemed.shared.persistence.JpaTransactionManager;
 import ro.scribemed.shared.persistence.PersistenceManager;
 import ro.scribemed.shared.persistence.config.DatabaseConfig;
@@ -111,9 +114,26 @@ public final class Main {
             TradingAccountHandler tradingAccountHandler =
                     new TradingAccountHandler(tradingAccountService);
 
+            /// INIT ORDER ENTRY POINT
+
+            IncomingOrderQueue incomingOrderQueue =
+                    new IncomingOrderQueue();
+
+            OrderService orderService = new OrderService(
+                    transactionManager,
+                    incomingOrderQueue
+            );
+
+            OrderHandler orderHandler =
+                    new OrderHandler(orderService);
 
             RequestRouter requestRouter =
-                    new RequestRouter(authenticationHandler, stockHandler, tradingAccountHandler);
+                    new RequestRouter(
+                            authenticationHandler,
+                            stockHandler,
+                            tradingAccountHandler,
+                            orderHandler
+                    );
 
             int tcpPort = tcpPortFromEnvironment();
 

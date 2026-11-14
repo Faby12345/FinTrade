@@ -8,7 +8,7 @@ import java.util.UUID;
 
 public interface OrderRepository {
 
-    void add(TradeOrder order);
+    TradeOrder add(TradeOrder order);
 
     Optional<TradeOrder> findById(UUID id);
 
@@ -19,4 +19,6 @@ public interface OrderRepository {
     List<TradeOrder> findAllActiveByStockId(UUID stockId);
 
     List<TradeOrder> findAllByTradingAccountId(UUID tradingAccountId);
+
+    long findMaxSequenceNumber();
 }

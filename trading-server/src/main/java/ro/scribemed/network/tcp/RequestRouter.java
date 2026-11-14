@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import ro.scribemed.authentification.handler.AuthenticationHandler;
 import ro.scribemed.network.protocol.ApiResponse;
 import ro.scribemed.network.protocol.exception.InvalidRequestException;
+import ro.scribemed.order.handler.OrderHandler;
 import ro.scribemed.stock.handler.StockHandler;
 import ro.scribemed.tradingAccount.handler.TradingAccountHandler;
 import ro.scribemed.tradingAccount.service.TradingAccountService;
@@ -24,15 +25,18 @@ public final class RequestRouter {
     private final AuthenticationHandler authenticationHandler;
     private final StockHandler stockHandler;
     private final TradingAccountHandler tradingAccountHandler;
+    private final OrderHandler orderHandler;
 
     public RequestRouter(
             AuthenticationHandler authenticationHandler,
             StockHandler stockHandler,
-            TradingAccountHandler tradingAccountHandler
+            TradingAccountHandler tradingAccountHandler,
+            OrderHandler orderHandler
     ) {
         this.authenticationHandler = authenticationHandler;
         this.stockHandler = stockHandler;
         this.tradingAccountHandler = tradingAccountHandler;
+        this.orderHandler = orderHandler;
     }
 
     public String handle(
@@ -80,6 +84,17 @@ public final class RequestRouter {
                         );
                 case "GET_ACCOUNT" ->
                         tradingAccountHandler.getAccount(
+                                requestId,
+                                session
+                        );
+                case "PLACE_ORDER" ->
+                        orderHandler.placeOrder(
+                                requestId,
+                                payload,
+                                session
+                        );
+                case "LIST_MY_ORDERS" ->
+                        orderHandler.getMyOrders(
                                 requestId,
                                 session
                         );

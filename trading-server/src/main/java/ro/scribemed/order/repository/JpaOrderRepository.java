@@ -24,8 +24,10 @@ public final class JpaOrderRepository implements OrderRepository {
     }
 
     @Override
-    public void add(TradeOrder order) {
-        entityManager.persist(Objects.requireNonNull(order));
+    public TradeOrder add(TradeOrder order) {
+        TradeOrder persistedOrder = Objects.requireNonNull(order);
+        entityManager.persist(persistedOrder);
+        return persistedOrder;
     }
 
     @Override
@@ -100,5 +102,16 @@ public final class JpaOrderRepository implements OrderRepository {
                         tradingAccountId
                 )
                 .getResultList();
+    }
+
+    @Override
+    public long findMaxSequenceNumber() {
+        Long maximum = entityManager.createQuery("""
+                select max(tradeOrder.sequenceNumber)
+                from TradeOrder tradeOrder
+                """, Long.class)
+                .getSingleResult();
+
+        return maximum == null ? 0 : maximum;
     }
 }
