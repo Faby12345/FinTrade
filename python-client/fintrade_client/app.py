@@ -9,6 +9,7 @@ from .network.trading_client import TradingClient
 from .services.account_service import AccountService
 from .services.authentication_service import AuthenticationService
 from .services.order_service import OrderService
+from .services.position_service import PositionService
 from .services.stock_service import StockService
 from .views.dashboard_view import DashboardView
 from .views.login_view import LoginView
@@ -34,6 +35,7 @@ class FinTradeApp:
         )
         self.account_service = AccountService(self.trading_client)
         self.order_service = OrderService(self.trading_client)
+        self.position_service = PositionService(self.trading_client)
         self.stock_service = StockService(self.trading_client)
         self.root.protocol("WM_DELETE_WINDOW", self._close)
 
@@ -66,6 +68,7 @@ class FinTradeApp:
             padx=50,
         )
         panel.grid(row=0, column=0, sticky="nsew")
+        self.brand_panel = panel
         panel.grid_rowconfigure(0, weight=1)
         panel.grid_rowconfigure(2, weight=1)
         panel.grid_columnconfigure(0, weight=1)
@@ -124,6 +127,8 @@ class FinTradeApp:
         ).grid(row=4, column=0, sticky="w")
 
     def _show(self, view_type: type[tk.Frame]) -> None:
+        self._show_authentication_shell()
+
         if self._current_view is not None:
             self._current_view.destroy()
 
@@ -151,18 +156,34 @@ class FinTradeApp:
         if self._current_view is not None:
             self._current_view.destroy()
 
+        self.brand_panel.grid_remove()
+        self.content_panel.grid_configure(
+            row=0,
+            column=0,
+            columnspan=2,
+            sticky="nsew",
+        )
+
         self._current_view = DashboardView(
             self.content_panel,
             user=user,
             account_service=self.account_service,
             order_service=self.order_service,
+            position_service=self.position_service,
             stock_service=self.stock_service,
         )
         self._current_view.grid(
             row=0,
             column=0,
-            padx=36,
-            pady=30,
+            sticky="nsew",
+        )
+
+    def _show_authentication_shell(self) -> None:
+        self.brand_panel.grid()
+        self.content_panel.grid_configure(
+            row=0,
+            column=1,
+            columnspan=1,
             sticky="nsew",
         )
 
