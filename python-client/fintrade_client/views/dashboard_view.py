@@ -14,6 +14,7 @@ from ..services.order_service import OrderService
 from ..services.position_service import PositionService
 from ..services.stock_service import StockService
 from .orders_table import OrdersTable
+from .buy_order_dialog import BuyOrderDialog
 from .positions_table import PositionsTable
 from .sell_order_dialog import SellOrderDialog
 from .stock_grid import StockGrid
@@ -36,6 +37,7 @@ class DashboardView(tk.Frame):
         self._order_service = order_service
         self._position_service = position_service
         self._stock_service = stock_service
+        self._account_data: dict[str, Any] | None = None
         self._loaded_pages: set[str] = set()
         self._nav_buttons: dict[str, tk.Button] = {}
 
@@ -177,6 +179,7 @@ class DashboardView(tk.Frame):
         self._positions_table = PositionsTable(
             self._page_container,
             on_refresh=self._load_positions,
+            on_buy=self._open_position_buy_dialog,
             on_sell=self._open_sell_dialog,
         )
         self._orders_table = OrdersTable(
@@ -186,6 +189,7 @@ class DashboardView(tk.Frame):
         self._stock_grid = StockGrid(
             self._page_container,
             on_refresh=self._load_stocks,
+            on_buy=self._open_buy_dialog,
         )
         self._pages: dict[str, tk.Frame] = {
             "positions": self._positions_table,
@@ -285,6 +289,7 @@ class DashboardView(tk.Frame):
             return
 
         self._account_error.configure(text="")
+        self._account_data = account
         for field, label in self._account_values.items():
             label.configure(
                 text=self._format_money(account.get(field)),
@@ -292,6 +297,7 @@ class DashboardView(tk.Frame):
             )
 
     def _show_account_error(self, message: str) -> None:
+        self._account_data = None
         for label in self._account_values.values():
             label.configure(text="—", foreground=theme.MUTED)
         self._account_error.configure(text=message)
@@ -341,6 +347,82 @@ class DashboardView(tk.Frame):
                 quantity,
                 price,
             ),
+        )
+
+    def _open_buy_dialog(self, stock: dict[str, Any]) -> None:
+        available_cash: Decimal | None = None
+        if self._account_data is not None:
+            try:
+                available_cash = Decimal(
+                    str(self._account_data.get("availableCash"))
+                )
+            except (InvalidOperation, TypeError, ValueError):
+                available_cash = None
+
+        dialog: BuyOrderDialog
+        dialog = BuyOrderDialog(
+            self,
+            stock=stock,
+            available_cash=available_cash,
+            on_submit=lambda quantity, price: self._submit_buy_order(
+                dialog,
+                stock,
+                quantity,
+                price,
+            ),
+        )
+
+    def _open_position_buy_dialog(
+        self,
+        position: dict[str, Any],
+    ) -> None:
+        stock = {
+            "id": position.get("stockId"),
+            "symbol": position.get("symbol"),
+            "name": position.get("stockName"),
+            "price": position.get("currentPrice"),
+        }
+        self._open_buy_dialog(stock)
+
+    def _submit_buy_order(
+        self,
+        dialog: BuyOrderDialog,
+        stock: dict[str, Any],
+        quantity: int,
+        limit_price: Decimal,
+    ) -> None:
+        stock_id = stock.get("id")
+        if not isinstance(stock_id, str) or not stock_id:
+            dialog.show_error("The stock has no valid identifier.")
+            return
+
+        try:
+            response = self._order_service.place_buy_order(
+                stock_id,
+                quantity,
+                limit_price,
+            )
+        except (ConnectionError, OSError, ValueError) as exception:
+            dialog.show_error(str(exception))
+            return
+
+        if response.get("status") != "OK":
+            error = response.get("error")
+            message = "The buy order could not be placed."
+            if isinstance(error, dict):
+                message = str(error.get("message", message))
+            dialog.show_error(message)
+            return
+
+        symbol = str(stock.get("symbol", "stock"))
+        dialog.close()
+        self._load_account()
+        self._load_orders()
+        self._show_page("orders")
+        messagebox.showinfo(
+            "Buy order submitted",
+            f"Your order to buy {quantity} {symbol} share(s) was accepted.",
+            parent=self.winfo_toplevel(),
         )
 
     def _submit_sell_order(

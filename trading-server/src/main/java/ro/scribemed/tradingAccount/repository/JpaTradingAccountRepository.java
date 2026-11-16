@@ -56,6 +56,24 @@ public final class JpaTradingAccountRepository
     }
 
     @Override
+    public Optional<TradingAccount> findByUserIdForUpdate(
+            UUID userId
+    ) {
+        Objects.requireNonNull(userId);
+
+        return entityManager.createQuery("""
+                select account
+                from TradingAccount account
+                where account.user.id = :userId
+                """, TradingAccount.class)
+                .setParameter("userId", userId)
+                .setLockMode(LockModeType.PESSIMISTIC_WRITE)
+                .setMaxResults(1)
+                .getResultStream()
+                .findFirst();
+    }
+
+    @Override
     public boolean existsByUserId(UUID userId) {
         Objects.requireNonNull(userId);
 

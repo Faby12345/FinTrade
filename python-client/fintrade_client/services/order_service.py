@@ -30,3 +30,19 @@ class OrderService:
                 "limitPrice": float(limit_price),
             },
         )
+
+    def place_buy_order(
+        self,
+        stock_id: str,
+        quantity: int,
+        limit_price: Decimal,
+    ) -> dict[str, Any]:
+        return self._trading_client.request(
+            "PLACE_ORDER",
+            {
+                "stockId": stock_id,
+                "side": "BUY",
+                "quantity": quantity,
+                "limitPrice": float(limit_price),
+            },
+        )

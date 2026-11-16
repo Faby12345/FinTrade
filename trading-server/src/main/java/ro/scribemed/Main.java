@@ -147,9 +147,12 @@ public final class Main {
                             positionHandler
                     );
 
+            /// CREATED THE MATCHING ENGINE RUNNING ON A SEPARATE THREAD CONSTANT
+
             MatchingEngine matchingEngine =
                     new MatchingEngine(incomingOrderQueue);
 
+            /// WHEN INCOMING QUEUE IS EMPTY IT WILL NOT MAKE ANY CHECKS (SO IT WILL NOT TAKE CPU POWER) UNTIL IT WILL BE TRIGGERED BY AN ORDER
             Thread matchingEngineThread = Thread.ofPlatform()
                     .name("fintrade-matching-engine")
                     .start(matchingEngine);

@@ -5,6 +5,7 @@ import ro.scribemed.shared.persistence.BaseEntity;
 import ro.scribemed.user.domain.User;
 
 import java.math.BigDecimal;
+import java.util.Objects;
 
 @Entity
 @Table(name = "trading_accounts")
@@ -52,5 +53,43 @@ public class TradingAccount extends BaseEntity {
 
     public BigDecimal getReservedCash() {
         return reservedCash;
+    }
+
+    public BigDecimal getAvailableCash() {
+        return cashBalance.subtract(reservedCash);
+    }
+
+    public void reserveCash(BigDecimal amount) {
+        requirePositiveAmount(amount);
+
+        if (amount.compareTo(getAvailableCash()) > 0) {
+            throw new IllegalStateException(
+                    "Not enough available cash for this order"
+            );
+        }
+
+        reservedCash = reservedCash.add(amount);
+    }
+
+    public void releaseReservedCash(BigDecimal amount) {
+        requirePositiveAmount(amount);
+
+        if (amount.compareTo(reservedCash) > 0) {
+            throw new IllegalStateException(
+                    "Cannot release more than the reserved cash"
+            );
+        }
+
+        reservedCash = reservedCash.subtract(amount);
+    }
+
+    private static void requirePositiveAmount(BigDecimal amount) {
+        Objects.requireNonNull(amount);
+
+        if (amount.signum() <= 0) {
+            throw new IllegalArgumentException(
+                    "Cash amount must be greater than zero"
+            );
+        }
     }
 }

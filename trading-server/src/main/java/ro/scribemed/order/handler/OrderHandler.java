@@ -101,6 +101,12 @@ public class OrderHandler {
                     "ORDER_SUBMISSION_INTERRUPTED",
                     "The order was saved but could not be queued"
             );
+        } catch (IllegalArgumentException | IllegalStateException exception) {
+            return ApiResponse.error(
+                    requestId,
+                    "ORDER_REJECTED",
+                    exception.getMessage()
+            );
         } catch (RuntimeException exception) {
             return ApiResponse.error(
                     requestId,

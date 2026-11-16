@@ -21,6 +21,7 @@ import ro.scribemed.tradingAccount.repository.TradingAccountRepository;
 
 import jakarta.persistence.EntityNotFoundException;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -64,7 +65,7 @@ public class OrderService {
                             new JpaPositionRepository(entityManager);
 
                     TradingAccount account = accountRepository
-                            .findByUserId(userId)
+                            .findByUserIdForUpdate(userId)
                             .orElseThrow(() -> new EntityNotFoundException(
                                     "Trading account was not found"
                             ));
@@ -81,19 +82,12 @@ public class OrderService {
                         );
                     }
 
-                    TradeOrder order = new TradeOrder(
-                            account,
-                            stock,
-                            request.side(),
-                            request.quantity(),
-                            request.limitPrice(),
-                            sequenceNumber
-                    );
+                    if (request.side() == OrderSide.BUY) {
+                        BigDecimal maximumOrderCost = request.limitPrice()
+                                .multiply(BigDecimal.valueOf(request.quantity()));
 
-                    TradeOrder persistedOrder =
-                            orderRepository.add(order);
-
-                    if (request.side() == OrderSide.SELL) {
+                        account.reserveCash(maximumOrderCost);
+                    } else {
                         Position position = positionRepository
                                 .findByTradingAccountIdAndStockIdForUpdate(
                                         account.getId(),
@@ -106,6 +100,17 @@ public class OrderService {
                         position.reserveForSale(request.quantity());
                     }
 
+                    TradeOrder order = new TradeOrder(
+                            account,
+                            stock,
+                            request.side(),
+                            request.quantity(),
+                            request.limitPrice(),
+                            sequenceNumber
+                    );
+
+                    TradeOrder persistedOrder =
+                            orderRepository.add(order);
 
                     return new OrderCreationResult(
                             OrderResponse.from(persistedOrder),
@@ -193,9 +198,4 @@ public class OrderService {
     ) {
     }
 
-    private record PersistedOrderCommand(
-            TradeOrder order,
-            OrderCommand command
-    ) {
-    }
 }

@@ -17,6 +17,7 @@ class PositionsTable(tk.Frame):
         parent: tk.Widget,
         *,
         on_refresh: Callable[[], None],
+        on_buy: Callable[[dict[str, Any]], None],
         on_sell: Callable[[dict[str, Any]], None],
     ) -> None:
         super().__init__(
@@ -26,6 +27,7 @@ class PositionsTable(tk.Frame):
             highlightbackground=theme.BORDER,
         )
         self._on_refresh = on_refresh
+        self._on_buy = on_buy
         self._on_sell = on_sell
         self._positions_by_item: dict[str, dict[str, Any]] = {}
         self.grid_columnconfigure(0, weight=1)
@@ -58,6 +60,24 @@ class PositionsTable(tk.Frame):
 
         actions = tk.Frame(header, background="#eef2ff")
         actions.grid(row=0, column=1, sticky="e")
+
+        self._buy_button = tk.Button(
+            actions,
+            text="Buy selected",
+            command=self._buy_selected,
+            state="disabled",
+            relief="flat",
+            background=theme.SUCCESS,
+            activebackground="#15803d",
+            disabledforeground="#94a3b8",
+            foreground="white",
+            activeforeground="white",
+            font=(theme.FONT_FAMILY, 9, "bold"),
+            padx=10,
+            pady=5,
+            cursor="arrow",
+        )
+        self._buy_button.pack(side="left", padx=(0, 8))
 
         self._sell_button = tk.Button(
             actions,
@@ -213,6 +233,7 @@ class PositionsTable(tk.Frame):
 
     def _clear(self) -> None:
         self._positions_by_item.clear()
+        self._buy_button.configure(state="disabled", cursor="arrow")
         self._sell_button.configure(state="disabled", cursor="arrow")
         for item in self._tree.get_children():
             self._tree.delete(item)
@@ -220,10 +241,23 @@ class PositionsTable(tk.Frame):
     def _selection_changed(self, _event: tk.Event) -> None:
         selected = self._tree.selection()
         enabled = bool(selected and selected[0] in self._positions_by_item)
+        self._buy_button.configure(
+            state="normal" if enabled else "disabled",
+            cursor="hand2" if enabled else "arrow",
+        )
         self._sell_button.configure(
             state="normal" if enabled else "disabled",
             cursor="hand2" if enabled else "arrow",
         )
+
+    def _buy_selected(self) -> None:
+        selected = self._tree.selection()
+        if not selected:
+            return
+
+        position = self._positions_by_item.get(selected[0])
+        if position is not None:
+            self._on_buy(position)
 
     def _sell_selected(self) -> None:
         selected = self._tree.selection()
