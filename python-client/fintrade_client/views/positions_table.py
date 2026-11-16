@@ -17,6 +17,7 @@ class PositionsTable(tk.Frame):
         parent: tk.Widget,
         *,
         on_refresh: Callable[[], None],
+        on_sell: Callable[[dict[str, Any]], None],
     ) -> None:
         super().__init__(
             parent,
@@ -25,6 +26,8 @@ class PositionsTable(tk.Frame):
             highlightbackground=theme.BORDER,
         )
         self._on_refresh = on_refresh
+        self._on_sell = on_sell
+        self._positions_by_item: dict[str, dict[str, Any]] = {}
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
         self._build_header()
@@ -53,8 +56,29 @@ class PositionsTable(tk.Frame):
         )
         self._count_label.pack(side="left", padx=(9, 0), pady=(3, 0))
 
+        actions = tk.Frame(header, background="#eef2ff")
+        actions.grid(row=0, column=1, sticky="e")
+
+        self._sell_button = tk.Button(
+            actions,
+            text="Sell selected",
+            command=self._sell_selected,
+            state="disabled",
+            relief="flat",
+            background=theme.ERROR,
+            activebackground="#b91c1c",
+            disabledforeground="#94a3b8",
+            foreground="white",
+            activeforeground="white",
+            font=(theme.FONT_FAMILY, 9, "bold"),
+            padx=10,
+            pady=5,
+            cursor="arrow",
+        )
+        self._sell_button.pack(side="left", padx=(0, 10))
+
         refresh = tk.Label(
-            header,
+            actions,
             text="Refresh",
             background="#eef2ff",
             foreground=theme.PRIMARY,
@@ -64,7 +88,7 @@ class PositionsTable(tk.Frame):
             pady=3,
             takefocus=True,
         )
-        refresh.grid(row=0, column=1, sticky="e")
+        refresh.pack(side="left")
         refresh.bind("<Button-1>", lambda _event: self._on_refresh())
         refresh.bind("<Return>", lambda _event: self._on_refresh())
 
@@ -101,6 +125,7 @@ class PositionsTable(tk.Frame):
             style="FinTradePositions.Treeview",
         )
         self._tree.grid(row=0, column=0, sticky="nsew")
+        self._tree.bind("<<TreeviewSelect>>", self._selection_changed)
 
         headings = {
             "symbol": "Stock", "name": "Company", "quantity": "Quantity",
@@ -170,7 +195,7 @@ class PositionsTable(tk.Frame):
         for position in positions:
             profit = self._decimal(position.get("unrealizedProfitLoss"))
             tag = "loss" if profit is not None and profit < 0 else "profit"
-            self._tree.insert(
+            item = self._tree.insert(
                 "",
                 "end",
                 values=(
@@ -184,10 +209,30 @@ class PositionsTable(tk.Frame):
                 ),
                 tags=(tag,),
             )
+            self._positions_by_item[item] = position
 
     def _clear(self) -> None:
+        self._positions_by_item.clear()
+        self._sell_button.configure(state="disabled", cursor="arrow")
         for item in self._tree.get_children():
             self._tree.delete(item)
+
+    def _selection_changed(self, _event: tk.Event) -> None:
+        selected = self._tree.selection()
+        enabled = bool(selected and selected[0] in self._positions_by_item)
+        self._sell_button.configure(
+            state="normal" if enabled else "disabled",
+            cursor="hand2" if enabled else "arrow",
+        )
+
+    def _sell_selected(self) -> None:
+        selected = self._tree.selection()
+        if not selected:
+            return
+
+        position = self._positions_by_item.get(selected[0])
+        if position is not None:
+            self._on_sell(position)
 
     @staticmethod
     def _decimal(value: object) -> Decimal | None:

@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from decimal import Decimal, InvalidOperation
 import tkinter as tk
+from tkinter import messagebox
 from typing import Any
 
 from .. import theme
@@ -14,6 +15,7 @@ from ..services.position_service import PositionService
 from ..services.stock_service import StockService
 from .orders_table import OrdersTable
 from .positions_table import PositionsTable
+from .sell_order_dialog import SellOrderDialog
 from .stock_grid import StockGrid
 
 
@@ -175,6 +177,7 @@ class DashboardView(tk.Frame):
         self._positions_table = PositionsTable(
             self._page_container,
             on_refresh=self._load_positions,
+            on_sell=self._open_sell_dialog,
         )
         self._orders_table = OrdersTable(
             self._page_container,
@@ -326,6 +329,59 @@ class DashboardView(tk.Frame):
         if orders is not None:
             self._loaded_pages.add("orders")
             self._orders_table.show_orders(orders)
+
+    def _open_sell_dialog(self, position: dict[str, Any]) -> None:
+        dialog: SellOrderDialog
+        dialog = SellOrderDialog(
+            self,
+            position=position,
+            on_submit=lambda quantity, price: self._submit_sell_order(
+                dialog,
+                position,
+                quantity,
+                price,
+            ),
+        )
+
+    def _submit_sell_order(
+            self,
+            dialog: SellOrderDialog,
+            position: dict[str, Any],
+            quantity: int,
+            limit_price: Decimal,
+    ) -> None:
+        stock_id = position.get("stockId")
+        if not isinstance(stock_id, str) or not stock_id:
+            dialog.show_error("The position has no valid stock identifier.")
+            return
+
+        try:
+            response = self._order_service.place_sell_order(
+                stock_id,
+                quantity,
+                limit_price,
+            )
+        except (ConnectionError, OSError, ValueError) as exception:
+            dialog.show_error(str(exception))
+            return
+
+        if response.get("status") != "OK":
+            error = response.get("error")
+            message = "The sell order could not be placed."
+            if isinstance(error, dict):
+                message = str(error.get("message", message))
+            dialog.show_error(message)
+            return
+
+        symbol = str(position.get("symbol", "stock"))
+        dialog.close()
+        self._load_orders()
+        self._show_page("orders")
+        messagebox.showinfo(
+            "Sell order submitted",
+            f"Your order to sell {quantity} {symbol} share(s) was accepted.",
+            parent=self.winfo_toplevel(),
+        )
 
     def _load_stocks(self) -> None:
         self._stock_grid.show_loading()

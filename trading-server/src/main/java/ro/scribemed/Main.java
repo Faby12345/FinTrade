@@ -11,6 +11,8 @@ import ro.scribemed.network.tcp.RequestRouter;
 import ro.scribemed.network.tcp.TradingTcpServer;
 import ro.scribemed.order.handler.OrderHandler;
 import ro.scribemed.order.service.OrderService;
+import ro.scribemed.position.handler.PositionHandler;
+import ro.scribemed.position.service.PositionService;
 import ro.scribemed.shared.persistence.IncomingOrderQueue;
 import ro.scribemed.shared.persistence.JpaTransactionManager;
 import ro.scribemed.shared.persistence.PersistenceManager;
@@ -127,12 +129,21 @@ public final class Main {
             OrderHandler orderHandler =
                     new OrderHandler(orderService);
 
+            /// INIT POSITION ENTRY POINT
+
+            PositionService positionService =
+                    new PositionService(transactionManager);
+
+            PositionHandler positionHandler =
+                    new PositionHandler(positionService);
+
             RequestRouter requestRouter =
                     new RequestRouter(
                             authenticationHandler,
                             stockHandler,
                             tradingAccountHandler,
-                            orderHandler
+                            orderHandler,
+                            positionHandler
                     );
 
             int tcpPort = tcpPortFromEnvironment();

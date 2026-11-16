@@ -1,11 +1,15 @@
 package ro.scribemed.order.service;
 
 import ro.scribemed.order.command.OrderCommand;
+import ro.scribemed.order.domain.OrderSide;
 import ro.scribemed.order.domain.TradeOrder;
 import ro.scribemed.order.dto.OrderResponse;
 import ro.scribemed.order.dto.PlaceOrderRequest;
 import ro.scribemed.order.repository.JpaOrderRepository;
 import ro.scribemed.order.repository.OrderRepository;
+import ro.scribemed.position.domain.Position;
+import ro.scribemed.position.repository.JpaPositionRepository;
+import ro.scribemed.position.repository.PositionRepository;
 import ro.scribemed.shared.persistence.IncomingOrderQueue;
 import ro.scribemed.shared.persistence.JpaTransactionManager;
 import ro.scribemed.stock.domain.Stock;
@@ -56,6 +60,9 @@ public class OrderService {
                     OrderRepository orderRepository =
                             new JpaOrderRepository(entityManager);
 
+                    PositionRepository positionRepository =
+                            new JpaPositionRepository(entityManager);
+
                     TradingAccount account = accountRepository
                             .findByUserId(userId)
                             .orElseThrow(() -> new EntityNotFoundException(
@@ -86,11 +93,26 @@ public class OrderService {
                     TradeOrder persistedOrder =
                             orderRepository.add(order);
 
+                    if (request.side() == OrderSide.SELL) {
+                        Position position = positionRepository
+                                .findByTradingAccountIdAndStockIdForUpdate(
+                                        account.getId(),
+                                        stock.getId()
+                                )
+                                .orElseThrow(() -> new IllegalStateException(
+                                        "You do not own this stock"
+                                ));
+
+                        position.reserveForSale(request.quantity());
+                    }
+
+
                     return new OrderCreationResult(
                             OrderResponse.from(persistedOrder),
                             OrderCommand.from(persistedOrder)
                     );
                 });
+
 
         incomingOrderQueue.submit(result.command());
 
