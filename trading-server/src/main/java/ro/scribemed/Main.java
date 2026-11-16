@@ -23,6 +23,7 @@ import ro.scribemed.stock.handler.StockHandler;
 import ro.scribemed.stock.repository.JpaStockRepository;
 import ro.scribemed.stock.repository.StockRepository;
 import ro.scribemed.stock.service.StockService;
+import ro.scribemed.trade.service.TradeSettlementService;
 import ro.scribemed.tradingAccount.handler.TradingAccountHandler;
 import ro.scribemed.tradingAccount.service.TradingAccountService;
 import ro.scribemed.user.service.UserService;
@@ -47,7 +48,7 @@ public final class Main {
             DatabaseConfig databaseConfig =
                     DatabaseConfig.fromEnvironment();
 
-            startServer(databaseConfig);
+            startTCPTradingServer(databaseConfig);
         } catch (IllegalStateException exception) {
             LOGGER.error(
                     "Invalid server configuration: {}",
@@ -66,7 +67,7 @@ public final class Main {
         }
     }
 
-    private static void startServer(
+    private static void startTCPTradingServer(
             DatabaseConfig databaseConfig
     ) throws IOException {
         LOGGER.info(
@@ -149,8 +150,14 @@ public final class Main {
 
             /// CREATED THE MATCHING ENGINE RUNNING ON A SEPARATE THREAD CONSTANT
 
+            TradeSettlementService tradeSettlementService =
+                    new TradeSettlementService(transactionManager);
+
             MatchingEngine matchingEngine =
-                    new MatchingEngine(incomingOrderQueue);
+                    new MatchingEngine(
+                            incomingOrderQueue,
+                            tradeSettlementService::settle
+                    );
 
             /// WHEN INCOMING QUEUE IS EMPTY IT WILL NOT MAKE ANY CHECKS (SO IT WILL NOT TAKE CPU POWER) UNTIL IT WILL BE TRIGGERED BY AN ORDER
             Thread matchingEngineThread = Thread.ofPlatform()

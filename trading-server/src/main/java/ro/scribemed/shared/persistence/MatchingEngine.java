@@ -80,11 +80,10 @@ public final class MatchingEngine implements Runnable {
                 OrderBook::new
         );
 
-        List<OrderMatch> matches = orderBook.process(incomingOrder);
-
-        for (OrderMatch match : matches) {
-            matchConsumer.accept(match);
-        }
+        List<OrderMatch> matches = orderBook.process(
+                incomingOrder,
+                matchConsumer
+        );
 
         LOGGER.debug(
                 "Order {} processed: {} match(es), {} buy order(s), "

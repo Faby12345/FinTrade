@@ -83,6 +83,40 @@ public class TradingAccount extends BaseEntity {
         reservedCash = reservedCash.subtract(amount);
     }
 
+    public void settlePurchase(
+            BigDecimal reservedAmount,
+            BigDecimal executionAmount
+    ) {
+        requirePositiveAmount(reservedAmount);
+        requirePositiveAmount(executionAmount);
+
+        if (executionAmount.compareTo(reservedAmount) > 0) {
+            throw new IllegalStateException(
+                    "Execution amount exceeds the reserved order amount"
+            );
+        }
+
+        if (reservedAmount.compareTo(reservedCash) > 0) {
+            throw new IllegalStateException(
+                    "Buyer does not have enough reserved cash"
+            );
+        }
+
+        if (executionAmount.compareTo(cashBalance) > 0) {
+            throw new IllegalStateException(
+                    "Buyer does not have enough cash"
+            );
+        }
+
+        reservedCash = reservedCash.subtract(reservedAmount);
+        cashBalance = cashBalance.subtract(executionAmount);
+    }
+
+    public void creditSale(BigDecimal executionAmount) {
+        requirePositiveAmount(executionAmount);
+        cashBalance = cashBalance.add(executionAmount);
+    }
+
     private static void requirePositiveAmount(BigDecimal amount) {
         Objects.requireNonNull(amount);
 

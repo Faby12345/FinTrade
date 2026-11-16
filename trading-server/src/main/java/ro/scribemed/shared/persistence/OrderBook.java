@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.PriorityQueue;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 public final class OrderBook {
 
@@ -34,7 +35,16 @@ public final class OrderBook {
     }
 
     public List<OrderMatch> process(BookOrder incomingOrder) {
+        return process(incomingOrder, ignored -> {
+        });
+    }
+
+    public List<OrderMatch> process(
+            BookOrder incomingOrder,
+            Consumer<OrderMatch> matchConsumer
+    ) {
         Objects.requireNonNull(incomingOrder);
+        Objects.requireNonNull(matchConsumer);
 
         if (!stockId.equals(incomingOrder.stockId())) {
             throw new IllegalArgumentException(
@@ -43,8 +53,8 @@ public final class OrderBook {
         }
 
         return incomingOrder.side() == OrderSide.BUY
-                ? processBuy(incomingOrder)
-                : processSell(incomingOrder);
+                ? processBuy(incomingOrder, matchConsumer)
+                : processSell(incomingOrder, matchConsumer);
     }
 
     public int buyOrderCount() {
@@ -55,85 +65,115 @@ public final class OrderBook {
         return sellOrders.size();
     }
 
-    private List<OrderMatch> processBuy(BookOrder incomingBuy) {
+    private List<OrderMatch> processBuy(
+            BookOrder incomingBuy,
+            Consumer<OrderMatch> matchConsumer
+    ) {
         List<OrderMatch> matches = new ArrayList<>();
 
-        while (!incomingBuy.isFilled() && !sellOrders.isEmpty()) {
-            BookOrder bestSell = sellOrders.peek();
+        try {
+            while (!incomingBuy.isFilled() && !sellOrders.isEmpty()) {
+                BookOrder bestSell = sellOrders.peek();
 
-            if (incomingBuy.limitPrice()
-                    .compareTo(bestSell.limitPrice()) < 0) {
-                break;
+                if (incomingBuy.limitPrice()
+                        .compareTo(bestSell.limitPrice()) < 0) {
+                    break;
+                }
+
+                long matchedQuantity = Math.min(
+                        incomingBuy.remainingQuantity(),
+                        bestSell.remainingQuantity()
+                );
+
+                OrderMatch match = new OrderMatch(
+                        stockId,
+                        incomingBuy.orderId(),
+                        bestSell.orderId(),
+                        incomingBuy.accountId(),
+                        bestSell.accountId(),
+                        matchedQuantity,
+                        bestSell.limitPrice()
+                );
+
+                matchConsumer.accept(match);
+
+                incomingBuy.fill(matchedQuantity);
+                bestSell.fill(matchedQuantity);
+                matches.add(match);
+
+                if (bestSell.isFilled()) {
+                    sellOrders.poll();
+                }
             }
-
-            long matchedQuantity = Math.min(
-                    incomingBuy.remainingQuantity(),
-                    bestSell.remainingQuantity()
-            );
-
-            incomingBuy.fill(matchedQuantity);
-            bestSell.fill(matchedQuantity);
-
-            matches.add(new OrderMatch(
-                    stockId,
-                    incomingBuy.orderId(),
-                    bestSell.orderId(),
-                    incomingBuy.accountId(),
-                    bestSell.accountId(),
-                    matchedQuantity,
-                    bestSell.limitPrice()
-            ));
-
-            if (bestSell.isFilled()) {
-                sellOrders.poll();
-            }
+        } catch (RuntimeException exception) {
+            restBuy(incomingBuy);
+            throw exception;
         }
 
-        if (!incomingBuy.isFilled()) {
-            buyOrders.add(incomingBuy);
-        }
+        restBuy(incomingBuy);
 
         return List.copyOf(matches);
     }
 
-    private List<OrderMatch> processSell(BookOrder incomingSell) {
+    private List<OrderMatch> processSell(
+            BookOrder incomingSell,
+            Consumer<OrderMatch> matchConsumer
+    ) {
         List<OrderMatch> matches = new ArrayList<>();
 
-        while (!incomingSell.isFilled() && !buyOrders.isEmpty()) {
-            BookOrder bestBuy = buyOrders.peek();
+        try {
+            while (!incomingSell.isFilled() && !buyOrders.isEmpty()) {
+                BookOrder bestBuy = buyOrders.peek();
 
-            if (bestBuy.limitPrice()
-                    .compareTo(incomingSell.limitPrice()) < 0) {
-                break;
+                if (bestBuy.limitPrice()
+                        .compareTo(incomingSell.limitPrice()) < 0) {
+                    break;
+                }
+
+                long matchedQuantity = Math.min(
+                        incomingSell.remainingQuantity(),
+                        bestBuy.remainingQuantity()
+                );
+
+                OrderMatch match = new OrderMatch(
+                        stockId,
+                        bestBuy.orderId(),
+                        incomingSell.orderId(),
+                        bestBuy.accountId(),
+                        incomingSell.accountId(),
+                        matchedQuantity,
+                        bestBuy.limitPrice()
+                );
+
+                matchConsumer.accept(match);
+
+                incomingSell.fill(matchedQuantity);
+                bestBuy.fill(matchedQuantity);
+                matches.add(match);
+
+                if (bestBuy.isFilled()) {
+                    buyOrders.poll();
+                }
             }
-
-            long matchedQuantity = Math.min(
-                    incomingSell.remainingQuantity(),
-                    bestBuy.remainingQuantity()
-            );
-
-            incomingSell.fill(matchedQuantity);
-            bestBuy.fill(matchedQuantity);
-
-            matches.add(new OrderMatch(
-                    stockId,
-                    bestBuy.orderId(),
-                    incomingSell.orderId(),
-                    bestBuy.accountId(),
-                    incomingSell.accountId(),
-                    matchedQuantity,
-                    bestBuy.limitPrice()
-            ));
-
-            if (bestBuy.isFilled()) {
-                buyOrders.poll();
-            }
+        } catch (RuntimeException exception) {
+            restSell(incomingSell);
+            throw exception;
         }
 
-        if (!incomingSell.isFilled()) {
-            sellOrders.add(incomingSell);
-        }
+        restSell(incomingSell);
 
         return List.copyOf(matches);
+    }
+
+    private void restBuy(BookOrder order) {
+        if (!order.isFilled()) {
+            buyOrders.add(order);
+        }
+    }
+
+    private void restSell(BookOrder order) {
+        if (!order.isFilled()) {
+            sellOrders.add(order);
+        }
     }
 }
