@@ -15,14 +15,11 @@ public record TradingAccountResponse(
     public static TradingAccountResponse from(
             TradingAccount tradingAccount
     ) {
-        BigDecimal cashBalance = tradingAccount.getCashBalance();
-        BigDecimal reservedCash = tradingAccount.getReservedCash();
-
         return new TradingAccountResponse(
                 tradingAccount.getId(),
-                cashBalance,
-                reservedCash,
-                cashBalance.subtract(reservedCash)
+                tradingAccount.getCashBalance(),
+                tradingAccount.getReservedCash(),
+                tradingAccount.getAvailableCash()
         );
     }
 }

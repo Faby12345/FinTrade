@@ -48,6 +48,10 @@ public class Position extends BaseEntity {
     )
     private BigDecimal averagePurchasePrice;
 
+    @Column(name = "reserved_quantity", nullable = false)
+    private long reservedQuantity;
+
+
     @Version
     private long version;
 
@@ -68,6 +72,45 @@ public class Position extends BaseEntity {
         this.quantity = quantity;
         this.averagePurchasePrice = averagePurchasePrice;
     }
+    public long getAvailableQuantity() {
+        return quantity - reservedQuantity;
+    }
+    public void releaseReservedQuantity(long quantityToRelease) {
+        requirePositiveQuantity(quantityToRelease);
+
+        if (quantityToRelease > reservedQuantity) {
+            throw new IllegalStateException(
+                    "Cannot release more than the reserved quantity"
+            );
+        }
+
+        reservedQuantity -= quantityToRelease;
+    }
+    public void completeSale(long soldQuantity) {
+        requirePositiveQuantity(soldQuantity);
+
+        if (soldQuantity > reservedQuantity) {
+            throw new IllegalStateException(
+                    "Sold quantity exceeds reserved quantity"
+            );
+        }
+
+        reservedQuantity -= soldQuantity;
+        quantity -= soldQuantity;
+    }
+
+    public void reserveForSale(long quantityToReserve) {
+        requirePositiveQuantity(quantityToReserve);
+
+        if (quantityToReserve > getAvailableQuantity()) {
+            throw new IllegalStateException(
+                    "Not enough shares available"
+            );
+        }
+
+        reservedQuantity += quantityToReserve;
+    }
+
 
     public void addPurchase(
             long purchasedQuantity,

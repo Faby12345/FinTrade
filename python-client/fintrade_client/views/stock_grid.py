@@ -18,6 +18,7 @@ class StockGrid(tk.Frame):
         parent: tk.Widget,
         *,
         on_refresh: Callable[[], None],
+        on_buy: Callable[[dict[str, Any]], None],
     ) -> None:
         super().__init__(
             parent,
@@ -26,6 +27,7 @@ class StockGrid(tk.Frame):
             highlightbackground=theme.BORDER,
         )
         self._on_refresh = on_refresh
+        self._on_buy = on_buy
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
@@ -204,7 +206,23 @@ class StockGrid(tk.Frame):
             anchor="w",
             justify="left",
             wraplength=210,
-        ).grid(row=2, column=0, columnspan=2, sticky="ew")
+        ).grid(row=2, column=0, sticky="ew")
+
+        tk.Button(
+            card,
+            text="Buy",
+            command=lambda selected=stock: self._on_buy(selected),
+            relief="flat",
+            borderwidth=0,
+            background=theme.PRIMARY,
+            activebackground="#1d4ed8",
+            foreground="white",
+            activeforeground="white",
+            font=(theme.FONT_FAMILY, 9, "bold"),
+            padx=16,
+            pady=6,
+            cursor="hand2",
+        ).grid(row=2, column=1, sticky="e", padx=(10, 0))
 
         return card
 

@@ -9,7 +9,13 @@ import ro.scribemed.authentification.security.PasswordHasher;
 import ro.scribemed.network.tcp.ClientHandler;
 import ro.scribemed.network.tcp.RequestRouter;
 import ro.scribemed.network.tcp.TradingTcpServer;
+import ro.scribemed.order.handler.OrderHandler;
+import ro.scribemed.order.service.OrderService;
+import ro.scribemed.position.handler.PositionHandler;
+import ro.scribemed.position.service.PositionService;
+import ro.scribemed.shared.persistence.IncomingOrderQueue;
 import ro.scribemed.shared.persistence.JpaTransactionManager;
+import ro.scribemed.shared.persistence.MatchingEngine;
 import ro.scribemed.shared.persistence.PersistenceManager;
 import ro.scribemed.shared.persistence.config.DatabaseConfig;
 import ro.scribemed.stock.domain.Stock;
@@ -17,6 +23,7 @@ import ro.scribemed.stock.handler.StockHandler;
 import ro.scribemed.stock.repository.JpaStockRepository;
 import ro.scribemed.stock.repository.StockRepository;
 import ro.scribemed.stock.service.StockService;
+import ro.scribemed.trade.service.TradeSettlementService;
 import ro.scribemed.tradingAccount.handler.TradingAccountHandler;
 import ro.scribemed.tradingAccount.service.TradingAccountService;
 import ro.scribemed.user.service.UserService;
@@ -41,7 +48,7 @@ public final class Main {
             DatabaseConfig databaseConfig =
                     DatabaseConfig.fromEnvironment();
 
-            startServer(databaseConfig);
+            startTCPTradingServer(databaseConfig);
         } catch (IllegalStateException exception) {
             LOGGER.error(
                     "Invalid server configuration: {}",
@@ -60,7 +67,7 @@ public final class Main {
         }
     }
 
-    private static void startServer(
+    private static void startTCPTradingServer(
             DatabaseConfig databaseConfig
     ) throws IOException {
         LOGGER.info(
@@ -111,37 +118,97 @@ public final class Main {
             TradingAccountHandler tradingAccountHandler =
                     new TradingAccountHandler(tradingAccountService);
 
+            /// INIT ORDER ENTRY POINT
+
+            IncomingOrderQueue incomingOrderQueue =
+                    new IncomingOrderQueue();
+
+            OrderService orderService = new OrderService(
+                    transactionManager,
+                    incomingOrderQueue
+            );
+
+            OrderHandler orderHandler =
+                    new OrderHandler(orderService);
+
+            /// INIT POSITION ENTRY POINT
+
+            PositionService positionService =
+                    new PositionService(transactionManager);
+
+            PositionHandler positionHandler =
+                    new PositionHandler(positionService);
 
             RequestRouter requestRouter =
-                    new RequestRouter(authenticationHandler, stockHandler, tradingAccountHandler);
+                    new RequestRouter(
+                            authenticationHandler,
+                            stockHandler,
+                            tradingAccountHandler,
+                            orderHandler,
+                            positionHandler
+                    );
 
-            int tcpPort = tcpPortFromEnvironment();
+            /// CREATED THE MATCHING ENGINE RUNNING ON A SEPARATE THREAD CONSTANT
 
-            try (TradingTcpServer server =
-                         new TradingTcpServer(
-                                 tcpPort,
-                                 socket -> new ClientHandler(
-                                         socket,
-                                         requestRouter
-                                 )
-                         )) {
-                Thread shutdownHook = new Thread(
-                        server::closeQuietly,
-                        "fintrade-shutdown"
-                );
+            TradeSettlementService tradeSettlementService =
+                    new TradeSettlementService(transactionManager);
 
-                Runtime.getRuntime().addShutdownHook(shutdownHook);
+            MatchingEngine matchingEngine =
+                    new MatchingEngine(
+                            incomingOrderQueue,
+                            tradeSettlementService::settle
+                    );
+
+            /// WHEN INCOMING QUEUE IS EMPTY IT WILL NOT MAKE ANY CHECKS (SO IT WILL NOT TAKE CPU POWER) UNTIL IT WILL BE TRIGGERED BY AN ORDER
+            Thread matchingEngineThread = Thread.ofPlatform()
+                    .name("fintrade-matching-engine")
+                    .start(matchingEngine);
+
+            try {
+                int recoveredOrders =
+                        orderService.enqueueActiveOrders();
 
                 LOGGER.info(
-                        "FinTrade TCP server starting on port {}",
-                        tcpPort
+                        "Restored {} active order(s) into the matching engine",
+                        recoveredOrders
                 );
 
-                try {
-                    server.start();
-                } finally {
-                    removeShutdownHook(shutdownHook);
+                int tcpPort = tcpPortFromEnvironment();
+
+                try (TradingTcpServer server =
+                             new TradingTcpServer(
+                                     tcpPort,
+                                     socket -> new ClientHandler(
+                                             socket,
+                                             requestRouter
+                                     )
+                             )) {
+                    Thread shutdownHook = new Thread(
+                            server::closeQuietly,
+                            "fintrade-shutdown"
+                    );
+
+                    Runtime.getRuntime().addShutdownHook(shutdownHook);
+
+                    LOGGER.info(
+                            "FinTrade TCP server starting on port {}",
+                            tcpPort
+                    );
+
+                    try {
+                        server.start();
+                    } finally {
+                        removeShutdownHook(shutdownHook);
+                    }
                 }
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException(
+                        "Interrupted while restoring active orders",
+                        exception
+                );
+            } finally {
+                stopMatchingEngine(matchingEngineThread);
             }
         }
     }
@@ -213,6 +280,16 @@ public final class Main {
             );
         } catch (IllegalStateException ignored) {
             // The JVM is already shutting down.
+        }
+    }
+
+    private static void stopMatchingEngine(Thread matchingEngineThread) {
+        matchingEngineThread.interrupt();
+
+        try {
+            matchingEngineThread.join(5_000);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
         }
     }
 }

@@ -15,6 +15,8 @@ public interface TradingAccountRepository {
 
     Optional<TradingAccount> findByUserId(UUID userId);
 
+    Optional<TradingAccount> findByUserIdForUpdate(UUID userId);
+
     boolean existsByUserId(UUID userId);
 
     Optional<TradingAccount> findByIdForUpdate(UUID id);
