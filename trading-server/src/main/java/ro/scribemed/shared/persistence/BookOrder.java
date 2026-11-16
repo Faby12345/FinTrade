@@ -38,12 +38,20 @@ public final class BookOrder {
             );
         }
 
+        Objects.requireNonNull(limitPrice);
+
+        if (limitPrice.signum() <= 0) {
+            throw new IllegalArgumentException(
+                    "Limit price must be greater than zero"
+            );
+        }
+
         this.orderId = Objects.requireNonNull(orderId);
         this.accountId = Objects.requireNonNull(accountId);
         this.stockId = Objects.requireNonNull(stockId);
         this.side = Objects.requireNonNull(side);
         this.remainingQuantity = remainingQuantity;
-        this.limitPrice = Objects.requireNonNull(limitPrice);
+        this.limitPrice = limitPrice;
         this.sequenceNumber = sequenceNumber;
     }
     public static BookOrder from(OrderCommand command) {
@@ -69,5 +77,33 @@ public final class BookOrder {
     }
     public boolean isFilled() {
         return remainingQuantity == 0;
+    }
+
+    public UUID orderId() {
+        return orderId;
+    }
+
+    public UUID accountId() {
+        return accountId;
+    }
+
+    public UUID stockId() {
+        return stockId;
+    }
+
+    public OrderSide side() {
+        return side;
+    }
+
+    public BigDecimal limitPrice() {
+        return limitPrice;
+    }
+
+    public long sequenceNumber() {
+        return sequenceNumber;
+    }
+
+    public long remainingQuantity() {
+        return remainingQuantity;
     }
 }

@@ -15,6 +15,7 @@ import ro.scribemed.position.handler.PositionHandler;
 import ro.scribemed.position.service.PositionService;
 import ro.scribemed.shared.persistence.IncomingOrderQueue;
 import ro.scribemed.shared.persistence.JpaTransactionManager;
+import ro.scribemed.shared.persistence.MatchingEngine;
 import ro.scribemed.shared.persistence.PersistenceManager;
 import ro.scribemed.shared.persistence.config.DatabaseConfig;
 import ro.scribemed.stock.domain.Stock;
@@ -146,33 +147,58 @@ public final class Main {
                             positionHandler
                     );
 
-            int tcpPort = tcpPortFromEnvironment();
+            MatchingEngine matchingEngine =
+                    new MatchingEngine(incomingOrderQueue);
 
-            try (TradingTcpServer server =
-                         new TradingTcpServer(
-                                 tcpPort,
-                                 socket -> new ClientHandler(
-                                         socket,
-                                         requestRouter
-                                 )
-                         )) {
-                Thread shutdownHook = new Thread(
-                        server::closeQuietly,
-                        "fintrade-shutdown"
-                );
+            Thread matchingEngineThread = Thread.ofPlatform()
+                    .name("fintrade-matching-engine")
+                    .start(matchingEngine);
 
-                Runtime.getRuntime().addShutdownHook(shutdownHook);
+            try {
+                int recoveredOrders =
+                        orderService.enqueueActiveOrders();
 
                 LOGGER.info(
-                        "FinTrade TCP server starting on port {}",
-                        tcpPort
+                        "Restored {} active order(s) into the matching engine",
+                        recoveredOrders
                 );
 
-                try {
-                    server.start();
-                } finally {
-                    removeShutdownHook(shutdownHook);
+                int tcpPort = tcpPortFromEnvironment();
+
+                try (TradingTcpServer server =
+                             new TradingTcpServer(
+                                     tcpPort,
+                                     socket -> new ClientHandler(
+                                             socket,
+                                             requestRouter
+                                     )
+                             )) {
+                    Thread shutdownHook = new Thread(
+                            server::closeQuietly,
+                            "fintrade-shutdown"
+                    );
+
+                    Runtime.getRuntime().addShutdownHook(shutdownHook);
+
+                    LOGGER.info(
+                            "FinTrade TCP server starting on port {}",
+                            tcpPort
+                    );
+
+                    try {
+                        server.start();
+                    } finally {
+                        removeShutdownHook(shutdownHook);
+                    }
                 }
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException(
+                        "Interrupted while restoring active orders",
+                        exception
+                );
+            } finally {
+                stopMatchingEngine(matchingEngineThread);
             }
         }
     }
@@ -244,6 +270,16 @@ public final class Main {
             );
         } catch (IllegalStateException ignored) {
             // The JVM is already shutting down.
+        }
+    }
+
+    private static void stopMatchingEngine(Thread matchingEngineThread) {
+        matchingEngineThread.interrupt();
+
+        try {
+            matchingEngineThread.join(5_000);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
         }
     }
 }

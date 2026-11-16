@@ -159,6 +159,25 @@ public class OrderService {
         });
     }
 
+    public int enqueueActiveOrders() throws InterruptedException {
+        List<OrderCommand> commands =
+                transactionManager.execute(entityManager -> {
+                    OrderRepository orderRepository =
+                            new JpaOrderRepository(entityManager);
+
+                    return orderRepository.findAllActive()
+                            .stream()
+                            .map(OrderCommand::from)
+                            .toList();
+                });
+
+        for (OrderCommand command : commands) {
+            incomingOrderQueue.submit(command);
+        }
+
+        return commands.size();
+    }
+
     private long loadMaximumSequenceNumber() {
         return transactionManager.execute(entityManager -> {
             OrderRepository orderRepository =

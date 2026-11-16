@@ -9,8 +9,9 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
 public class IncomingOrderQueue {
-    public static int QUEUE_CAPACITY = 10000;
-    BlockingQueue<OrderCommand> queue;
+    private static final int QUEUE_CAPACITY = 10_000;
+
+    private final BlockingQueue<OrderCommand> queue;
     private static final Logger LOGGER =
             LoggerFactory.getLogger(IncomingOrderQueue.class);
 
@@ -20,7 +21,11 @@ public class IncomingOrderQueue {
 
     public void submit(OrderCommand orderCommand) throws InterruptedException{
         queue.put(orderCommand);
-      LOGGER.info("QUEUE: {}", queue.toString());
+        LOGGER.debug(
+                "Order {} queued; queue size is {}",
+                orderCommand.orderId(),
+                queue.size()
+        );
     }
 
     public OrderCommand take() throws InterruptedException{
